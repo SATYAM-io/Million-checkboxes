@@ -2,14 +2,19 @@ import http from 'http';
 import path from 'path';
 
 import express from 'express';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { stat } from 'fs';
 
 import { publisher, redis, subscriber } from './redis-connection.js';
+import { time } from 'console';
 
 
 const checkboxsize = 100
 const checkbox_state_key = 'checkbox-state'
+
+const rateLimitingHashMap = new Map();
+
+
 
 
 
@@ -38,13 +43,24 @@ async function main() {
 
         Socket.on('client:checkbox:change', async (data) => {
             console.log(`[socket: ${Socket.id}]:client:checkbox:change`, data);
+            
+            // rate limiting check
+            const lastOperationTime = rateLimitingHashMap.get(Socket.id)
+            if (lastOperationTime) {
+                const timeElapsed = Date.now() - lastOperationTime;
+                if(timeElapsed < 5.5 * 1000) {
+                    Socket.emit('server:error', {error: 'please wait before changing another checkbox'})
+                    return;
+                }
+            } 
+    rateLimitingHashMap.set(Socket.id, Date.now())
 
             const existingState = await redis.get(checkbox_state_key);
 
             if (existingState) {
                 const remoteData = JSON.parse(existingState );
                 remoteData[data.index] = data.checked;
-                 redis.set(checkbox_state_key, JSON.stringify(remoteData));
+                 await redis.set(checkbox_state_key, JSON.stringify(remoteData));
             } else {
                 await redis.set(
                     checkbox_state_key,

@@ -72,18 +72,105 @@
         input[type="checkbox"]:checked:hover {
             transform: scale(1.15);
         }
+
+        #error-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 59, 48, 0.9);
+            border: 2px solid #ff3b30;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 400px;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 0 30px rgba(255, 59, 48, 0.5);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        #error-container.show {
+            display: block;
+        }
+
+        #error-message {
+            color: white;
+            font-size: 14px;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        #error-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+
+        #error-close:hover {
+            transform: scale(1.2);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(450px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
     <h1>
         checkboxes
     </h1>
+    <div id="error-container">
+        <button id="error-close">&times;</button>
+        <p id="error-message"></p>
+    </div>
     <div id="container"></div>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io()
         const container = document.getElementById('container')
         const checkbox_count = 100
+        const errorContainer = document.getElementById('error-container')
+        const errorMessage = document.getElementById('error-message')
+        const errorClose = document.getElementById('error-close')
+
+        // Show error function
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorContainer.classList.add('show');
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorContainer.classList.remove('show');
+            }, 5000);
+        }
+
+        // Close button handler
+        errorClose.addEventListener('click', () => {
+            errorContainer.classList.remove('show');
+        });
+
+        socket.on('server:error', (data) => {
+            console.log(`socket server error event`, data);
+            const errorMsg = data.error || 'An error occurred';
+            showError(errorMsg);
+        });
 
 
         socket.on('server:checkbox:change', (data) => {
